@@ -56,7 +56,7 @@ class App {
     this.app.use('/messages', messagesRoutes);
     
     // Ruta por defecto
-    this.app.get('/', ( res: Response) => {
+    this.app.get('/', (_req: Request, res: Response) => {
       res.json({
         message: 'WhatsApp Microservice API',
         version: '1.0.0',
