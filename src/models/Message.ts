@@ -48,7 +48,7 @@ const MessageSchema: Schema = new Schema({
   },
   status: {
     type: String,
-    enum: ['sent', 'delivered', 'read', 'failed'],
+    enum: ['sent', 'delivered', 'read', 'failed', 'received'], // ← Agregar 'received'
     index: true
   }
 }, {
@@ -85,7 +85,7 @@ MessageSchema.statics.searchInContent = function(chatId: string, searchTerm: str
 };
 
 // Métodos de instancia
-MessageSchema.methods.updateStatus = function(newStatus: 'sent' | 'delivered' | 'read' | 'failed') {
+MessageSchema.methods.updateStatus = function(newStatus: 'sent' | 'delivered' | 'read' | 'failed' | 'received') {
   this.status = newStatus;
   return this.save();
 };
