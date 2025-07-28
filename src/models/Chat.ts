@@ -1,10 +1,16 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { ChatDocument } from '../types/whatsapp.interfaces';
 
-// Extender la interfaz para incluir los métodos de Mongoose
+// Definir la interfaz con los métodos de instancia
 export interface IChat extends Omit<ChatDocument, 'createdAt' | 'updatedAt'>, Document {
   createdAt: Date;
   updatedAt: Date;
+  
+  // Métodos de instancia
+  updateLastMessage(content: string, timestamp?: Date): Promise<IChat>;
+  markAsRead(): Promise<IChat>;
+  addParticipant(phoneNumber: string): Promise<IChat>;
+  removeParticipant(phoneNumber: string): Promise<IChat>;
 }
 
 const ChatSchema: Schema = new Schema({

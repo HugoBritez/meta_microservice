@@ -135,12 +135,46 @@ export class WebSocketService {
 
   private async handleMarkChatRead(socket: Socket, chatId: string): Promise<void> {
     try {
-      // Aquí puedes implementar lógica para marcar chat como leído
-      // Por ejemplo, actualizar el unreadCount del chat
+      // Importar modelos
+      const { Message } = await import('../models/Message');
+      const { Chat } = await import('../models/Chat');
+
+      // Marcar todos los mensajes no leídos del chat como "read"
+      await Message.updateMany(
+        { 
+          chatId, 
+          status: { $in: ['sent', 'delivered', 'received'] } // Mensajes que no están en "read" o "failed"
+        },
+        { 
+          $set: { status: 'read' } 
+        }
+      );
+
+      // Marcar el chat como leído (resetear contador de no leídos)
+      const chat = await Chat.findOne({ chatId });
+      if (chat) {
+        await chat.markAsRead();
+      }
+
+      // Notificar al cliente que solicitó la acción
       socket.emit('chat_marked_read', { chatId, success: true });
+
+      // Notificar a otros clientes suscritos al chat sobre la actualización
+      await this.notifyChatUpdate(chatId, {
+        unreadCount: 0,
+        markedReadBy: socket.id,
+        timestamp: new Date()
+      });
+
+      console.log(`✅ Chat marcado como leído: ${chatId} por cliente: ${socket.id}`);
+
     } catch (error) {
       console.error('Error marcando chat como leído:', error);
-      socket.emit('error', { action: 'mark_chat_read', error: 'Error interno' });
+      socket.emit('error', { 
+        action: 'mark_chat_read', 
+        error: 'Error interno',
+        chatId 
+      });
     }
   }
 
