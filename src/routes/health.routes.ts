@@ -1,9 +1,9 @@
-import { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
 
 const router = Router();
 
 // Ruta de salud básica
-router.get('/', (res: Response) => {
+router.get('/', (_req: Request, res: Response) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
@@ -13,7 +13,7 @@ router.get('/', (res: Response) => {
 });
 
 // Ruta de salud detallada
-router.get('/detailed', ( res: Response) => {
+router.get('/detailed', (_req: Request, res: Response) => {
   const healthInfo = {
     status: 'OK',
     timestamp: new Date().toISOString(),
