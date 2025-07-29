@@ -44,15 +44,22 @@ const MessageSchema: Schema = new Schema({
   },
   rawWebhook: {
     type: Schema.Types.Mixed,
-    required: true
+    required: false  // ⭐ CAMBIO: Ahora es opcional
   },
   status: {
     type: String,
-    enum: ['sent', 'delivered', 'read', 'failed', 'received'], // ← Agregar 'received'
+    enum: ['sent', 'delivered', 'read', 'failed', 'received'],
     index: true
+  },
+  direction: {  // ⭐ NUEVO CAMPO: Para diferenciar incoming/outgoing
+    type: String,
+    enum: ['incoming', 'outgoing'],
+    required: true,
+    index: true,
+    default: 'incoming'  // Por compatibilidad con mensajes existentes
   }
 }, {
-  timestamps: true, // Agrega createdAt y updatedAt automáticamente
+  timestamps: true,
   collection: 'messages'
 });
 
@@ -60,6 +67,7 @@ const MessageSchema: Schema = new Schema({
 MessageSchema.index({ chatId: 1, timestamp: -1 });
 MessageSchema.index({ from: 1, timestamp: -1 });
 MessageSchema.index({ type: 1, timestamp: -1 });
+MessageSchema.index({ direction: 1, timestamp: -1 }); // ⭐ NUEVO ÍNDICE
 
 // Métodos estáticos
 MessageSchema.statics.findByChatId = function(chatId: string, limit: number = 50) {
@@ -82,6 +90,20 @@ MessageSchema.statics.searchInContent = function(chatId: string, searchTerm: str
       { 'content.caption': { $regex: searchTerm, $options: 'i' } }
     ]
   }).sort({ timestamp: -1 });
+};
+
+// ⭐ NUEVO MÉTODO: Buscar solo mensajes enviados
+MessageSchema.statics.findOutgoingMessages = function(chatId: string, limit: number = 50) {
+  return this.find({ chatId, direction: 'outgoing' })
+    .sort({ timestamp: -1 })
+    .limit(limit);
+};
+
+// ⭐ NUEVO MÉTODO: Buscar solo mensajes recibidos
+MessageSchema.statics.findIncomingMessages = function(chatId: string, limit: number = 50) {
+  return this.find({ chatId, direction: 'incoming' })
+    .sort({ timestamp: -1 })
+    .limit(limit);
 };
 
 // Métodos de instancia

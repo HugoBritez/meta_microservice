@@ -76,8 +76,9 @@ export class WhatsAppWebhookService {
         to: changeValue.metadata?.phone_number_id,
         type: message.type,
         content,
-        rawWebhook: originalWebhook,
-        status: 'received'
+        rawWebhook: originalWebhook,  // Solo los mensajes recibidos tienen webhook
+        status: 'received',
+        direction: 'incoming'  // ⭐ AGREGAR ESTE CAMPO
       });
 
       // Guardar mensaje en BD
