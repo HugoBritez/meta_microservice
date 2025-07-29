@@ -276,6 +276,24 @@ export class WebSocketService {
     console.log(`📤 Mensaje notificado por WebSocket: ${chatId}`);
   }
 
+  // NUEVO MÉTODO: broadcastToChat genérico
+  broadcastToChat(chatId: string, eventName: string, data: any): void {
+    if (!this.io) return;
+
+    // Enviar evento específico a todos los clientes suscritos al chat
+    this.io.to(`chat:${chatId}`).emit(eventName, data);
+    
+    console.log(`📡 Evento '${eventName}' enviado al chat: ${chatId}`);
+  }
+
+  // NUEVO MÉTODO: broadcast general a todos los clientes
+  broadcast(eventName: string, data: any): void {
+    if (!this.io) return;
+
+    this.io.emit(eventName, data);
+    console.log(`📡 Evento '${eventName}' enviado a todos los clientes`);
+  }
+
   async notifyMessageStatus(chatId: string, status: WhatsAppStatus): Promise<void> {
     if (!this.io) return;
 

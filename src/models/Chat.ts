@@ -5,7 +5,6 @@ import { ChatDocument } from '../types/whatsapp.interfaces';
 export interface IChat extends Omit<ChatDocument, 'createdAt' | 'updatedAt'>, Document {
   createdAt: Date;
   updatedAt: Date;
-  
   // Métodos de instancia
   updateLastMessage(content: string, timestamp?: Date): Promise<IChat>;
   markAsRead(): Promise<IChat>;
