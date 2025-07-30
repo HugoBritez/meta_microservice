@@ -40,31 +40,74 @@ export class JwtUtil {
     }
 
     static verifyToken(token: string): JwtPayload {
+        console.log('[JWT] Verificando token...');
+        console.log('[JWT] Token recibido (primeros 50 chars):', token.substring(0, 50) + '...');
+        console.log('[JWT] Configuración utilizada:');
+        console.log('[JWT]   - Issuer:', this.issuer);
+        console.log('[JWT]   - Audience:', this.audience);
+        console.log('[JWT]   - Secret (primeros 10 chars):', this.secretKey.substring(0, 10) + '...');
+        
         try {
+            // Primero decodificar sin verificar para ver el contenido
+            const unverified = jwt.decode(token, { complete: true });
+            console.log('[JWT] Token decodificado (sin verificar):');
+            console.log('[JWT]   - Header:', JSON.stringify(unverified?.header, null, 2));
+            console.log('[JWT]   - Payload:', JSON.stringify(unverified?.payload, null, 2));
+            
+            // Ahora verificar con las opciones
             const decoded = jwt.verify(token, this.secretKey, {
                 issuer: this.issuer,
                 audience: this.audience
             }) as JwtPayload;
+            
+            console.log('[JWT] ✅ Token verificado exitosamente');
+            console.log('[JWT] Payload verificado:', JSON.stringify(decoded, null, 2));
+            
             return decoded;
         } catch (error) {
+            console.log('[JWT] ❌ Error verificando token:', error);
+            
             if (error instanceof jwt.JsonWebTokenError) {
-                throw new Error('Token inválido');
+                console.log('[JWT] Tipo de error: JsonWebTokenError');
+                console.log('[JWT] Mensaje:', error.message);
+                throw new Error('Token inválido: ' + error.message);
             }
             else if (error instanceof jwt.TokenExpiredError) {
-                throw new Error('Token expirado');
+                console.log('[JWT] Tipo de error: TokenExpiredError');
+                console.log('[JWT] Fecha de expiración:', error.expiredAt);
+                throw new Error('Token expirado: ' + error.message);
             }
-            throw new Error('Token inválido');
+            else if (error instanceof jwt.NotBeforeError) {
+                console.log('[JWT] Tipo de error: NotBeforeError');
+                throw new Error('Token no válido aún: ' + error.message);
+            }
+            
+            console.log('[JWT] Error desconocido:', error);
+            throw new Error('Token inválido: ' + (error as Error).message);
         }
     }
 
 
     static extractTokenFromHeader(req: string | undefined): string | undefined {
-        if (!req) return undefined;
+        console.log('[JWT] Extrayendo token del header...');
+        console.log('[JWT] Authorization header:', req);
+        
+        if (!req) {
+            console.log('[JWT] ❌ No hay header de autorización');
+            return undefined;
+        }
 
         const parts = req.split(' ');
-        if (parts.length !== 2 || parts[0] !== 'Bearer') return undefined;
+        console.log('[JWT] Partes del header:', parts);
+        
+        if (parts.length !== 2 || parts[0] !== 'Bearer') {
+            console.log('[JWT] ❌ Formato de header inválido. Esperado: "Bearer <token>"');
+            return undefined;
+        }
 
-        return parts[1];
+        const token = parts[1];
+        console.log('[JWT] ✅ Token extraído exitosamente (longitud:', token?.length, 'chars)');
+        return token;
     }
 
 
