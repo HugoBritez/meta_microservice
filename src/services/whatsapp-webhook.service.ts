@@ -75,7 +75,7 @@ export class WhatsAppWebhookService {
         content,
         rawWebhook: originalWebhook,  // Solo los mensajes recibidos tienen webhook
         status: 'received',
-        direction: 'incoming'  // ⭐ AGREGAR ESTE CAMPO
+        direction: 'incoming' 
       });
 
       // Guardar mensaje en BD

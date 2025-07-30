@@ -1,4 +1,5 @@
 import { config } from '../config/config';
+import { Chat } from '../models/Chat';
 import { Message } from '../models/Message';
 
 // ARREGLADA: interface más precisa para las respuestas de WhatsApp API
@@ -24,6 +25,7 @@ interface TextMessage {
   to: string;
   text: string;
   chatId?: string;
+  timestamp?: string;
 }
 
 interface MediaMessage {
@@ -33,6 +35,7 @@ interface MediaMessage {
   mediaUrl?: string;
   caption?: string;
   chatId?: string;
+  timestamp?: string;
 }
 
 export class WhatsAppSendService {
@@ -72,6 +75,8 @@ export class WhatsAppSendService {
           content: { text: { body: text } },
           type: 'text'
         });
+
+        await this.updateChat(chatId || '', { to, text }, { type: 'text', text: { body: text } })
       }
 
       return response;
@@ -127,6 +132,8 @@ export class WhatsAppSendService {
           },
           type: mediaType
         });
+        
+        await this.updateChat(chatId || '', { to, text: caption || '' }, { type: mediaType, media: mediaPayload })
       }
 
       return response;
@@ -198,6 +205,58 @@ export class WhatsAppSendService {
       console.log(`✅ Mensaje enviado guardado: ${messageData.messageId}`);
     } catch (error) {
       console.error('❌ Error guardando mensaje enviado:', error);
+    }
+  }
+
+  private async updateChat (chatId: string, message: TextMessage | MediaMessage, content: any) {
+    try {
+      const lastMessageContent = this.extractMessageContent(content);
+      const timestamp = new Date(parseInt(new Date().getTime().toString()) * 1000);
+
+      let chat = await Chat.findOne({ chatId });
+      if(!chat){
+        chat = new Chat({
+          chatId,
+          participants:  [message.to],
+          lastMessage: timestamp,
+          lastMessageContent,
+          unreadCount: 1,
+          metadata: {
+            contactName: message.to,
+            phoneNumberId: message.to
+          }
+        });
+      } else {
+        chat.lastMessage = timestamp;
+        chat.lastMessageContent = lastMessageContent;
+        chat.unreadCount += 1
+      }
+
+      await chat.save();
+    } catch (error) {
+      console.error('❌ Error actualizando chat:', error);
+    }
+  }
+
+
+  private extractMessageContent(content: any) {
+    switch (content.type) {
+      case 'text':
+        return content.text?.body || 'Mensaje de texto';
+      case 'image':
+        return content.image?.caption || 'Imagen';
+      case 'document':
+        return content.document?.caption || 'Documento';
+      case 'audio':
+        return content.audio?.caption || 'Audio';
+      case 'video':
+        return content.video?.caption || 'Video';
+      case 'sticker':
+        return content.sticker?.caption || 'Sticker';
+      case 'location':
+        return content.location?.caption || 'Ubicación';
+      case 'contacts':
+        return content.contacts?.caption || 'Contacto';
     }
   }
 

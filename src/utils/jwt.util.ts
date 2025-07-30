@@ -39,6 +39,7 @@ export class JwtUtil {
         );
     }
 
+    
     static verifyToken(token: string): JwtPayload {
         console.log('[JWT] Verificando token...');
         console.log('[JWT] Token recibido (primeros 50 chars):', token.substring(0, 50) + '...');
