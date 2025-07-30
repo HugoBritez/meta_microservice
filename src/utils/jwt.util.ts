@@ -42,6 +42,11 @@ export class JwtUtil {
     static verifyToken(token: string): JwtPayload {
         console.log('[JWT] Verificando token...');
         console.log('[JWT] Token recibido (primeros 50 chars):', token.substring(0, 50) + '...');
+        
+        // Limpiar el token si viene con "Bearer "
+        const cleanToken = token.startsWith('Bearer ') ? token.substring(7) : token;
+        console.log('[JWT] Token limpio (primeros 50 chars):', cleanToken.substring(0, 50) + '...');
+        
         console.log('[JWT] Configuración utilizada:');
         console.log('[JWT]   - Issuer:', this.issuer);
         console.log('[JWT]   - Audience:', this.audience);
@@ -49,13 +54,13 @@ export class JwtUtil {
         
         try {
             // Primero decodificar sin verificar para ver el contenido
-            const unverified = jwt.decode(token, { complete: true });
+            const unverified = jwt.decode(cleanToken, { complete: true });
             console.log('[JWT] Token decodificado (sin verificar):');
             console.log('[JWT]   - Header:', JSON.stringify(unverified?.header, null, 2));
             console.log('[JWT]   - Payload:', JSON.stringify(unverified?.payload, null, 2));
             
             // Ahora verificar con las opciones
-            const decoded = jwt.verify(token, this.secretKey, {
+            const decoded = jwt.verify(cleanToken, this.secretKey, {
                 issuer: this.issuer,
                 audience: this.audience
             }) as JwtPayload;
