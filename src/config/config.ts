@@ -15,6 +15,8 @@ interface Config {
   jwt: {
     secret: string;
     expiresIn: string;
+    issuer: string;
+    audience: string;
   }
   tenants: {
     [key: string]: {
@@ -37,7 +39,9 @@ export const config: Config = {
   whatsappPhoneNumberId: process.env['WHATSAPP_PHONE_NUMBER_ID'] || '',
   jwt: {
     secret: process.env['JWT_SECRET'] || '',
-    expiresIn: process.env['JWT_EXPIRES_IN'] || '1h'
+    expiresIn: process.env['JWT_EXPIRES_IN'] || '1h',
+    issuer: process.env['JWT_ISSUER'] || 'SofmarAPI',
+    audience: process.env['JWT_AUDIENCE'] || 'WebStock'
   },
   tenants: {
     localhost: {
