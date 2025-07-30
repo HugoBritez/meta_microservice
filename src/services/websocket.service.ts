@@ -222,13 +222,6 @@ export class WebSocketService {
     return client?.isAuthenticated || false;
   }
 
-  /**
-   * Obtener información del usuario autenticado
-   */
-  private getAuthenticatedUser(socketId: string): JwtPayload | null {
-    const client = this.clients.get(socketId);
-    return client?.isAuthenticated ? client.user || null : null;
-  }
 
   private handleChatSubscription(socket: Socket, chatId: string): void {
     const client = this.clients.get(socket.id);
@@ -340,22 +333,7 @@ export class WebSocketService {
     }
   }
 
-  private setupHeartbeat(socket: Socket): void {
-    const interval = setInterval(() => {
-      socket.emit('ping');
-    }, 30000); // Ping cada 30 segundos
 
-    socket.on('disconnect', () => {
-      clearInterval(interval);
-    });
-  }
-
-  private updateClientActivity(clientId: string): void {
-    const client = this.clients.get(clientId);
-    if (client) {
-      client.lastActivity = new Date();
-    }
-  }
 
   private cleanupInactiveClients(): void {
     const now = new Date();
