@@ -2,6 +2,8 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { WebSocketMessage, WhatsAppStatus } from '../types/whatsapp.interfaces';
 import { JwtUtil, JwtPayload } from '../utils/jwt.util';
+import { TenantInfo } from '../middleware/tenant.middleware';
+import { TenantUtil } from '../utils/tenant.util';
 
 interface ConnectedClient {
   id: string;
@@ -11,6 +13,7 @@ interface ConnectedClient {
   isAuthenticated: boolean;
   user?: JwtPayload;
   clientId?: string;
+  tenant: TenantInfo; // ✨ Información del tenant
 }
 
 export class WebSocketService {
@@ -44,15 +47,20 @@ export class WebSocketService {
     if (!this.io) return;
 
     this.io.on('connection', (socket: Socket) => {
-      console.log(`🔗 Cliente conectado: ${socket.id}`);
+      // Detectar tenant desde el handshake
+      const tenant = TenantUtil.detectTenantFromSocket(socket);
+      const tenantLog = TenantUtil.formatTenantForLog(tenant);
+      
+      console.log(`🔗 Cliente WebSocket conectado: ${socket.id} | ${tenantLog} | IP: ${tenant.clientIp}`);
 
-      // Registrar cliente SIN autenticar inicialmente
+      // Registrar cliente SIN autenticar inicialmente, pero CON información de tenant
       this.clients.set(socket.id, {
         id: socket.id,
         socket,
         subscribedChats: new Set(),
         lastActivity: new Date(),
-        isAuthenticated: false
+        isAuthenticated: false,
+        tenant // ✨ Información del tenant detectada
       });
 
       // ===========================================
@@ -127,7 +135,9 @@ export class WebSocketService {
       // ===========================================
 
       socket.on('disconnect', (reason) => {
-        console.log(`🔌 Cliente desconectado: ${socket.id} - Razón: ${reason}`);
+        const client = this.clients.get(socket.id);
+        const tenantLog = client ? TenantUtil.formatTenantForLog(client.tenant) : '[unknown]';
+        console.log(`🔌 Cliente WebSocket desconectado: ${socket.id} | ${tenantLog} - Razón: ${reason}`);
         this.clients.delete(socket.id);
       });
 
@@ -135,7 +145,8 @@ export class WebSocketService {
       setTimeout(() => {
         const client = this.clients.get(socket.id);
         if (client && !client.isAuthenticated) {
-          console.log(`⏰ Timeout de autenticación para cliente: ${socket.id}`);
+          const tenantLog = TenantUtil.formatTenantForLog(client.tenant);
+          console.log(`⏰ Timeout de autenticación WebSocket para cliente: ${socket.id} | ${tenantLog}`);
           socket.emit('error', { 
             message: 'Timeout de autenticación. Desconectando...',
             code: 'AUTH_TIMEOUT'
@@ -154,10 +165,13 @@ export class WebSocketService {
   private handleAuthentication(socket: Socket, data: any): void {
     try {
       const { token, clientId } = data;
+      const client = this.clients.get(socket.id);
+      const tenantLog = client ? TenantUtil.formatTenantForLog(client.tenant) : '[unknown]';
       
-      console.log(`🔐 Intento de autenticación - Cliente: ${socket.id}, ClientId: ${clientId || 'sin clientId'}`);
+      console.log(`🔐 Intento de autenticación WebSocket - Cliente: ${socket.id} | ${tenantLog} | ClientId: ${clientId || 'sin clientId'}`);
 
       if (!token) {
+        console.log(`❌ Autenticación fallida: Token faltante | ${tenantLog}`);
         socket.emit('authentication_failed', {
           success: false,
           error: 'Token requerido',
@@ -170,28 +184,36 @@ export class WebSocketService {
       const payload = JwtUtil.verifyToken(token);
       
       // Actualizar información del cliente
-      const client = this.clients.get(socket.id);
       if (client) {
         client.isAuthenticated = true;
         client.user = payload;
         client.clientId = clientId;
         client.lastActivity = new Date();
         
-        console.log(`✅ Cliente autenticado: ${socket.id}`);
+        console.log(`✅ Cliente WebSocket autenticado: ${socket.id} | ${tenantLog}`);
         console.log(`   📧 Usuario: ${payload.userId}`);
         console.log(`   🏷️  Cliente ID: ${clientId || 'anónimo'}`);
         console.log(`   🕒 Expira: ${payload.exp ? new Date(payload.exp * 1000).toISOString() : 'nunca'}`);
+        console.log(`   🌐 Tenant: ${client.tenant.name} (${client.tenant.host})`);
         
         socket.emit('authenticated', { 
           success: true, 
           clientId: socket.id,
           serverTime: new Date().toISOString(),
           userId: payload.userId,
+          tenant: {
+            id: client.tenant.id,
+            name: client.tenant.name,
+            host: client.tenant.host
+          }
         });
       }
 
     } catch (error) {
-      console.error(`❌ Error de autenticación para ${socket.id}:`, error);
+      const client = this.clients.get(socket.id);
+      const tenantLog = client ? TenantUtil.formatTenantForLog(client.tenant) : '[unknown]';
+      
+      console.error(`❌ Error de autenticación WebSocket para ${socket.id} | ${tenantLog}:`, error);
       
       let errorCode = 'AUTH_ERROR';
       let errorMessage = 'Error de autenticación';
@@ -226,9 +248,10 @@ export class WebSocketService {
   private handleChatSubscription(socket: Socket, chatId: string): void {
     const client = this.clients.get(socket.id);
     if (client) {
+      const tenantLog = TenantUtil.formatTenantForLog(client.tenant);
       client.subscribedChats.add(chatId);
       socket.join(`chat:${chatId}`);
-      console.log(`📱 Cliente ${socket.id} suscrito al chat: ${chatId}`);
+      console.log(`📱 Cliente WebSocket ${socket.id} | ${tenantLog} suscrito al chat: ${chatId}`);
       
       socket.emit('chat_subscribed', { chatId, success: true });
     }
@@ -237,9 +260,10 @@ export class WebSocketService {
   private handleChatUnsubscription(socket: Socket, chatId: string): void {
     const client = this.clients.get(socket.id);
     if (client) {
+      const tenantLog = TenantUtil.formatTenantForLog(client.tenant);
       client.subscribedChats.delete(chatId);
       socket.leave(`chat:${chatId}`);
-      console.log(`📱 Cliente ${socket.id} desuscrito del chat: ${chatId}`);
+      console.log(`📱 Cliente WebSocket ${socket.id} | ${tenantLog} desuscrito del chat: ${chatId}`);
       
       socket.emit('chat_unsubscribed', { chatId, success: true });
     }
@@ -442,13 +466,125 @@ export class WebSocketService {
 
   // Obtener estadísticas de conexiones
   getStats(): any {
+    const clientsArray = Array.from(this.clients.values());
+    
+    // Estadísticas por tenant
+    const tenantStats = new Map<string, number>();
+    clientsArray.forEach(client => {
+      const tenantId = client.tenant.id;
+      tenantStats.set(tenantId, (tenantStats.get(tenantId) || 0) + 1);
+    });
+
     return {
       connectedClients: this.clients.size,
-      clients: Array.from(this.clients.values()).map(client => ({
+      tenantDistribution: Object.fromEntries(tenantStats),
+      clients: clientsArray.map(client => ({
         id: client.id,
         subscribedChats: Array.from(client.subscribedChats),
-        lastActivity: client.lastActivity
+        lastActivity: client.lastActivity,
+        tenant: {
+          id: client.tenant.id,
+          name: client.tenant.name,
+          host: client.tenant.host
+        },
+        isAuthenticated: client.isAuthenticated
       }))
     };
+  }
+
+  // ✨ Métodos específicos para multitenant
+
+  /**
+   * Obtiene todos los clientes de un tenant específico
+   */
+  public getClientsByTenant(tenantId: string): ConnectedClient[] {
+    return Array.from(this.clients.values()).filter(client => 
+      client.tenant.id === tenantId
+    );
+  }
+
+  /**
+   * Envía un evento solo a los clientes de un tenant específico
+   */
+  public emitToTenant(tenantId: string, eventName: string, data: any): void {
+    const tenantClients = this.getClientsByTenant(tenantId);
+    
+    console.log(`📡 Enviando evento '${eventName}' a ${tenantClients.length} clientes del tenant [${tenantId}]`);
+    
+    tenantClients.forEach(client => {
+      client.socket.emit(eventName, data);
+    });
+  }
+
+  /**
+   * Obtiene estadísticas específicas de un tenant
+   */
+  public getTenantStats(tenantId: string) {
+    const tenantClients = this.getClientsByTenant(tenantId);
+    const authenticatedClients = tenantClients.filter(c => c.isAuthenticated);
+    
+    return {
+      tenantId,
+      totalClients: tenantClients.length,
+      authenticatedClients: authenticatedClients.length,
+      unauthenticatedClients: tenantClients.length - authenticatedClients.length,
+      clients: tenantClients.map(client => ({
+        id: client.id,
+        isAuthenticated: client.isAuthenticated,
+        subscribedChats: Array.from(client.subscribedChats),
+        lastActivity: client.lastActivity,
+        clientId: client.clientId,
+        userId: client.user?.userId
+      }))
+    };
+  }
+
+  /**
+   * Desconecta todos los clientes de un tenant específico
+   */
+  public disconnectTenant(tenantId: string, reason: string = 'Tenant disconnected'): void {
+    const tenantClients = this.getClientsByTenant(tenantId);
+    
+    console.log(`🚫 Desconectando ${tenantClients.length} clientes del tenant [${tenantId}] - Razón: ${reason}`);
+    
+    tenantClients.forEach(client => {
+      client.socket.emit('tenant_disconnected', { reason });
+      client.socket.disconnect();
+    });
+  }
+
+  /**
+   * Lista todos los tenants conectados actualmente
+   */
+  public getConnectedTenants() {
+    const tenantMap = new Map<string, {
+      id: string;
+      name: string;
+      host: string;
+      clientCount: number;
+      authenticatedCount: number;
+    }>();
+
+    Array.from(this.clients.values()).forEach(client => {
+      const tenantId = client.tenant.id;
+      
+      if (!tenantMap.has(tenantId)) {
+        tenantMap.set(tenantId, {
+          id: client.tenant.id,
+          name: client.tenant.name,
+          host: client.tenant.host,
+          clientCount: 0,
+          authenticatedCount: 0
+        });
+      }
+      
+      const tenant = tenantMap.get(tenantId)!;
+      tenant.clientCount++;
+      if (client.isAuthenticated) {
+        tenant.authenticatedCount++;
+      }
+    });
+
+    return Array.from(tenantMap.values());
   }
 } 

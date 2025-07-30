@@ -12,6 +12,7 @@ import { metaApiRoutes } from './routes/meta_api.routes';
 import { messagesRoutes } from './routes/meesages.routes';
 import { logger } from './services/logger.service';
 import { tenantMiddleware } from './middleware/tenant.middleware';
+import { tenantRoutes } from './routes/tenant.routes';
 
 class App {
   public app: Application;
@@ -60,6 +61,9 @@ class App {
     this.app.use('/health', healthRoutes);
     this.app.use('/meta', metaApiRoutes);
     this.app.use('/messages', messagesRoutes);
+    
+    // Rutas de tenant (multitenant)
+    this.app.use('/tenant', tenantRoutes);
     
     // Ruta por defecto
     this.app.get('/', (_req: Request, res: Response) => {
