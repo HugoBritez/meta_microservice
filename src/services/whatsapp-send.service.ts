@@ -67,16 +67,18 @@ export class WhatsAppSendService {
       const response = await this.makeApiCall(payload);
       
       if (response.success && response.messageId) {
+        const finalChatId = chatId || this.generateChatId(to);
+        
         // Guardar mensaje enviado en la BD
         await this.saveOutgoingMessage({
           messageId: response.messageId,
-          chatId: chatId || this.generateChatId(to),
+          chatId: finalChatId,
           to,
           content: { text: { body: text } },
           type: 'text'
         });
 
-        await this.updateChat(chatId || '', { to, text }, { type: 'text', text: { body: text } })
+        await this.updateChat(finalChatId, { to, text, chatId: finalChatId }, { type: 'text', text: { body: text } })
       }
 
       return response;
@@ -117,10 +119,12 @@ export class WhatsAppSendService {
       const response = await this.makeApiCall(payload);
       
       if (response.success && response.messageId) {
+        const finalChatId = chatId || this.generateChatId(to);
+        
         // Guardar mensaje enviado en la BD
         await this.saveOutgoingMessage({
           messageId: response.messageId,
-          chatId: chatId || this.generateChatId(to),
+          chatId: finalChatId, // <- usar finalChatId
           to,
           content: { 
             media: { 
@@ -133,7 +137,7 @@ export class WhatsAppSendService {
           type: mediaType
         });
         
-        await this.updateChat(chatId || '', { to, text: caption || '' }, { type: mediaType, media: mediaPayload })
+        await this.updateChat(finalChatId, { to, text: caption || '', chatId: finalChatId }, { type: mediaType, media: mediaPayload })
       }
 
       return response;
@@ -211,16 +215,16 @@ export class WhatsAppSendService {
   private async updateChat (chatId: string, message: TextMessage | MediaMessage, content: any) {
     try {
       const lastMessageContent = this.extractMessageContent(content);
-      const timestamp = new Date(parseInt(new Date().getTime().toString()) * 1000);
+      const timestamp = new Date(); // Simplificado
 
       let chat = await Chat.findOne({ chatId });
       if(!chat){
         chat = new Chat({
           chatId,
-          participants:  [message.to],
+          participants: [message.to],
           lastMessage: timestamp,
           lastMessageContent,
-          unreadCount: 1,
+          unreadCount: 0, // Mensajes salientes no incrementan unreadCount
           metadata: {
             contactName: message.to,
             phoneNumberId: message.to
@@ -229,7 +233,7 @@ export class WhatsAppSendService {
       } else {
         chat.lastMessage = timestamp;
         chat.lastMessageContent = lastMessageContent;
-        chat.unreadCount += 1
+        // No incrementar unreadCount para mensajes salientes
       }
 
       await chat.save();
