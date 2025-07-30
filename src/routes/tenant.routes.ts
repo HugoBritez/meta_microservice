@@ -53,7 +53,7 @@ router.get('/websocket/stats/:tenantId', (req: Request, res: Response) => {
   logger.info(`Consulta de estadísticas WebSocket para tenant: ${tenantId}`, req);
   
   const wsService = WebSocketService.getInstance();
-  const tenantStats = wsService.getTenantStats(tenantId);
+  const tenantStats = wsService.getTenantStats(tenantId || '');
   
   res.json({
     ...tenantStats,
@@ -76,11 +76,20 @@ router.post('/websocket/emit/:tenantId', (req: Request, res: Response) => {
   logger.info(`Enviando evento WebSocket '${eventName}' a tenant: ${tenantId}`, req);
   
   const wsService = WebSocketService.getInstance();
-  wsService.emitToTenant(tenantId, eventName, data);
+  wsService.emitToTenant(tenantId || '', eventName, data);
   
-  const tenantClients = wsService.getClientsByTenant(tenantId);
-  
+  const tenantClients = wsService.getClientsByTenant(tenantId || '');
+    
   res.json({
+    success: true,
+    eventName,
+    targetTenant: tenantId,
+    clientsReached: tenantClients.length,
+    data,
+    sentBy: req.tenant?.name || 'Unknown'
+  });
+
+  return res.status(200).json({
     success: true,
     eventName,
     targetTenant: tenantId,
@@ -98,10 +107,10 @@ router.post('/websocket/disconnect/:tenantId', (req: Request, res: Response) => 
   logger.warn(`Desconectando clientes WebSocket del tenant: ${tenantId}`, req);
   
   const wsService = WebSocketService.getInstance();
-  const tenantClients = wsService.getClientsByTenant(tenantId);
+  const tenantClients = wsService.getClientsByTenant(tenantId || '');
   const clientCount = tenantClients.length;
   
-  wsService.disconnectTenant(tenantId, reason || 'Disconnected by admin');
+  wsService.disconnectTenant(tenantId || '', reason || 'Disconnected by admin');
   
   res.json({
     success: true,
