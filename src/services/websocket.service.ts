@@ -1,12 +1,16 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { WebSocketMessage, WhatsAppStatus } from '../types/whatsapp.interfaces';
+import { JwtUtil, JwtPayload } from '../utils/jwt.util';
 
 interface ConnectedClient {
   id: string;
   socket: Socket;
   subscribedChats: Set<string>;
   lastActivity: Date;
+  isAuthenticated: boolean;
+  user?: JwtPayload;
+  clientId?: string;
 }
 
 export class WebSocketService {
@@ -42,73 +46,188 @@ export class WebSocketService {
     this.io.on('connection', (socket: Socket) => {
       console.log(`🔗 Cliente conectado: ${socket.id}`);
 
-      // Registrar cliente
+      // Registrar cliente SIN autenticar inicialmente
       this.clients.set(socket.id, {
         id: socket.id,
         socket,
         subscribedChats: new Set(),
-        lastActivity: new Date()
+        lastActivity: new Date(),
+        isAuthenticated: false
       });
 
-      // Event handlers
+      // ===========================================
+      // EVENTOS DE AUTENTICACIÓN
+      // ===========================================
+      
       socket.on('authenticate', (data) => {
         this.handleAuthentication(socket, data);
       });
 
+      // ===========================================
+      // EVENTOS PROTEGIDOS (requieren autenticación)
+      // ===========================================
+
       socket.on('subscribe_chat', (chatId: string) => {
-        this.handleChatSubscription(socket, chatId);
+        if (this.isClientAuthenticated(socket.id)) {
+          this.handleChatSubscription(socket, chatId);
+        } else {
+          socket.emit('error', { 
+            message: 'Autenticación requerida para suscribirse a chats',
+            code: 'AUTH_REQUIRED'
+          });
+        }
       });
 
       socket.on('unsubscribe_chat', (chatId: string) => {
-        this.handleChatUnsubscription(socket, chatId);
+        if (this.isClientAuthenticated(socket.id)) {
+          this.handleChatUnsubscription(socket, chatId);
+        } else {
+          socket.emit('error', { 
+            message: 'Autenticación requerida',
+            code: 'AUTH_REQUIRED'
+          });
+        }
+      });
+
+      socket.on('get_chat_list', (options = {}) => {
+        if (this.isClientAuthenticated(socket.id)) {
+          this.handleGetChatList(socket, options);
+        } else {
+          socket.emit('error', { 
+            message: 'Autenticación requerida para obtener lista de chats',
+            code: 'AUTH_REQUIRED'
+          });
+        }
+      });
+
+      socket.on('get_chat_messages', (data) => {
+        if (this.isClientAuthenticated(socket.id)) {
+          this.handleGetChatMessages(socket, data);
+        } else {
+          socket.emit('error', { 
+            message: 'Autenticación requerida para obtener mensajes',
+            code: 'AUTH_REQUIRED'
+          });
+        }
       });
 
       socket.on('mark_chat_read', (chatId: string) => {
-        this.handleMarkChatRead(socket, chatId);
+        if (this.isClientAuthenticated(socket.id)) {
+          this.handleMarkChatRead(socket, chatId);
+        } else {
+          socket.emit('error', { 
+            message: 'Autenticación requerida',
+            code: 'AUTH_REQUIRED'
+          });
+        }
       });
 
-      socket.on('get_chat_messages', async (data: { chatId: string, limit?: number, offset?: number }) => {
-        await this.handleGetChatMessages(socket, data);
-      });
-
-      socket.on('get_chat_list', async (data: { limit?: number, unreadOnly?: boolean }) => {
-        await this.handleGetChatList(socket, data);
-      });
-
-      socket.on('ping', () => {
-        socket.emit('pong');
-        this.updateClientActivity(socket.id);
-      });
+      // ===========================================
+      // EVENTOS DE DESCONEXIÓN
+      // ===========================================
 
       socket.on('disconnect', (reason) => {
-        console.log(`🔌 Cliente desconectado: ${socket.id} - ${reason}`);
+        console.log(`🔌 Cliente desconectado: ${socket.id} - Razón: ${reason}`);
         this.clients.delete(socket.id);
       });
 
-      // Heartbeat
-      this.setupHeartbeat(socket);
+      // Timeout de autenticación: si no se autentica en 30 segundos, desconectar
+      setTimeout(() => {
+        const client = this.clients.get(socket.id);
+        if (client && !client.isAuthenticated) {
+          console.log(`⏰ Timeout de autenticación para cliente: ${socket.id}`);
+          socket.emit('error', { 
+            message: 'Timeout de autenticación. Desconectando...',
+            code: 'AUTH_TIMEOUT'
+          });
+          socket.disconnect();
+        }
+      }, 30000); // 30 segundos
     });
 
-    // Cleanup de clientes inactivos cada 5 minutos
+    // Limpiar clientes inactivos cada 5 minutos
     setInterval(() => {
       this.cleanupInactiveClients();
     }, 5 * 60 * 1000);
   }
 
   private handleAuthentication(socket: Socket, data: any): void {
-    // Aquí puedes implementar autenticación con JWT u otro método
-    const { token, clientId } = data;
-    
-    // Por ahora, aceptar todas las conexiones
-    // En producción, validar el token aquí
-    console.log(`🔐 Cliente autenticado: ${socket.id} (${clientId || 'anónimo'})`);
-    console.log(token)
-    
-    socket.emit('authenticated', { 
-      success: true, 
-      clientId: socket.id,
-      serverTime: new Date().toISOString()
-    });
+    try {
+      const { token, clientId } = data;
+      
+      console.log(`🔐 Intento de autenticación - Cliente: ${socket.id}, ClientId: ${clientId || 'sin clientId'}`);
+
+      if (!token) {
+        socket.emit('authentication_failed', {
+          success: false,
+          error: 'Token requerido',
+          code: 'TOKEN_MISSING'
+        });
+        return;
+      }
+
+      // Verificar JWT
+      const payload = JwtUtil.verifyToken(token);
+      
+      // Actualizar información del cliente
+      const client = this.clients.get(socket.id);
+      if (client) {
+        client.isAuthenticated = true;
+        client.user = payload;
+        client.clientId = clientId;
+        client.lastActivity = new Date();
+        
+        console.log(`✅ Cliente autenticado: ${socket.id}`);
+        console.log(`   📧 Usuario: ${payload.userId}`);
+        console.log(`   🏷️  Cliente ID: ${clientId || 'anónimo'}`);
+        console.log(`   🕒 Expira: ${payload.exp ? new Date(payload.exp * 1000).toISOString() : 'nunca'}`);
+        
+        socket.emit('authenticated', { 
+          success: true, 
+          clientId: socket.id,
+          serverTime: new Date().toISOString(),
+          userId: payload.userId,
+        });
+      }
+
+    } catch (error) {
+      console.error(`❌ Error de autenticación para ${socket.id}:`, error);
+      
+      let errorCode = 'AUTH_ERROR';
+      let errorMessage = 'Error de autenticación';
+      
+      if (error instanceof Error) {
+        if (error.message === 'Token expirado') {
+          errorCode = 'TOKEN_EXPIRED';
+          errorMessage = 'Token expirado';
+        } else if (error.message === 'Token inválido') {
+          errorCode = 'TOKEN_INVALID';
+          errorMessage = 'Token inválido';
+        }
+      }
+      
+      socket.emit('authentication_failed', {
+        success: false,
+        error: errorMessage,
+        code: errorCode
+      });
+    }
+  }
+
+  /**
+   * Verificar si un cliente está autenticado
+   */
+  private isClientAuthenticated(socketId: string): boolean {
+    const client = this.clients.get(socketId);
+    return client?.isAuthenticated || false;
+  }
+
+  /**
+   * Obtener información del usuario autenticado
+   */
+  private getAuthenticatedUser(socketId: string): JwtPayload | null {
+    const client = this.clients.get(socketId);
+    return client?.isAuthenticated ? client.user || null : null;
   }
 
   private handleChatSubscription(socket: Socket, chatId: string): void {
@@ -240,7 +359,7 @@ export class WebSocketService {
 
   private cleanupInactiveClients(): void {
     const now = new Date();
-    const timeout = 10 * 60 * 1000; // 10 minutos
+    const timeout = 30 * 60 * 1000; // 30 minutos
 
     for (const [clientId, client] of this.clients.entries()) {
       if (now.getTime() - client.lastActivity.getTime() > timeout) {

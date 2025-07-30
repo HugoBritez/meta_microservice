@@ -1,7 +1,6 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
 import { createServer } from 'http';
 import { config } from './config/config';
 import { database } from './config/database';
@@ -11,6 +10,8 @@ import { WebSocketService } from './services/websocket.service';
 import { healthRoutes } from './routes/health.routes';
 import { metaApiRoutes } from './routes/meta_api.routes';
 import { messagesRoutes } from './routes/meesages.routes';
+import { logger } from './services/logger.service';
+import { tenantMiddleware } from './middleware/tenant.middleware';
 
 class App {
   public app: Application;
@@ -42,8 +43,13 @@ class App {
     // Middlewares de seguridad
     this.app.use(helmet());
     this.app.use(cors());
-    // Middleware de logging - formato minimalista personalizado
-    this.app.use(morgan(':method :url :status - :response-time ms'));
+    
+    // Middleware de tenant - DEBE ir antes del logging
+    this.app.use(tenantMiddleware);
+    
+    // Middleware de logging con información de tenant
+    this.app.use(logger.getMorganMiddleware());
+    
     // Middleware para parsear JSON
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
@@ -75,19 +81,22 @@ class App {
   private initializeErrorHandling(): void {
     // Middleware para manejar rutas no encontradas
     this.app.use('*', (req: Request, res: Response) => {
+      logger.warn(`Ruta no encontrada: ${req.originalUrl}`, req);
       res.status(404).json({
         error: 'Ruta no encontrada',
-        path: req.originalUrl
+        path: req.originalUrl,
+        tenant: req.tenant?.name || 'Unknown'
       });
     });
 
     // Middleware para manejo global de errores
     this.app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
-      console.error(`ERROR [${req.method}] ${req.originalUrl} - ${error.message}`);
-       console.log('Next', next)
+      logger.error(`Error en ${req.method} ${req.originalUrl}: ${error.message}`, req);
+      console.log('Next', next);
       res.status(500).json({
         error: 'Error interno del servidor',
-        message: process.env['NODE_ENV'] === 'development' ? error.message : 'Algo salió mal'
+        message: process.env['NODE_ENV'] === 'development' ? error.message : 'Algo salió mal',
+        tenant: req.tenant?.name || 'Unknown'
       });
     });
   }

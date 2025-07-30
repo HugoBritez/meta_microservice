@@ -12,6 +12,18 @@ interface Config {
   verifyToken: string;
   whatsappAccessToken: string;
   whatsappPhoneNumberId: string;
+  jwt: {
+    secret: string;
+    expiresIn: string;
+  }
+  tenants: {
+    [key: string]: {
+      name: string;
+      host: string;
+      subdomain?: string;
+      isActive: boolean;
+    }
+  }
 }
 
 export const config: Config = {
@@ -19,13 +31,37 @@ export const config: Config = {
   nodeEnv: process.env['NODE_ENV'] || 'development',
   corsOrigin: process.env['CORS_ORIGIN'] || '*',
   logLevel: process.env['LOG_LEVEL'] || 'info',
-  mongoUri: process.env['MONGODB_URI'] || 'mongodb://admin:tu_password@localhost:27017/whatsapp_db?authSource=admin',
-  verifyToken: process.env['VERIFY_TOKEN'] || 'tu_verify_token',
-  whatsappAccessToken: process.env['WHATSAPP_ACCESS_TOKEN'] || 'tu_access_token',
-  whatsappPhoneNumberId: process.env['WHATSAPP_PHONE_NUMBER_ID'] || 'tu_phone_number_id'
+  mongoUri: process.env['MONGODB_URI'] || '',
+  verifyToken: process.env['VERIFY_TOKEN'] || '',
+  whatsappAccessToken: process.env['WHATSAPP_ACCESS_TOKEN'] || '',
+  whatsappPhoneNumberId: process.env['WHATSAPP_PHONE_NUMBER_ID'] || '',
+  jwt: {
+    secret: process.env['JWT_SECRET'] || '',
+    expiresIn: process.env['JWT_EXPIRES_IN'] || '1h'
+  },
+  tenants: {
+    localhost: {
+      name: "Development",
+      host: "localhost",
+      isActive: true,
+    },
+    sofmar: {
+      name: "Sofmar Principal",
+      host: "sofmar.com.py",
+      isActive: true,
+    },
+    lobeck: {
+      name: "Lobeck",
+      host: "lobeck.sofmar.com.py",
+      subdomain: "lobeck",
+      isActive: true,
+    }
+  }
 };
 
 // Validar configuración
 if (!config.port || isNaN(config.port)) {
   throw new Error('Puerto inválido en la configuración');
 } 
+
+

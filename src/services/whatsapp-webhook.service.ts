@@ -12,7 +12,6 @@ export class WhatsAppWebhookService {
 
   async processWebhook(webhookData: WhatsAppWebhook): Promise<void> {
     try {
-      console.log('🔄 Procesando webhook de WhatsApp...');
 
       for (const entry of webhookData.entry) {
         for (const change of entry.changes) {
@@ -21,10 +20,8 @@ export class WhatsAppWebhookService {
               await this.processMessages(change.value, webhookData);
               break;
             case 'message_template_status_update':
-              console.log('📋 Template status update:', change.value);
               break;
             case 'account_update':
-              console.log('👤 Account update:', change.value);
               break;
             default:
               console.log('ℹ️ Campo no manejado:', change.field);
@@ -32,7 +29,7 @@ export class WhatsAppWebhookService {
         }
       }
     } catch (error) {
-      console.error('❌ Error procesando webhook:', error);
+      console.error('Error procesando webhook:', error);
       throw error;
     }
   }
