@@ -12,14 +12,14 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - MONGODB_URI=mongodb://mongodb:27017/whatsapp_db
+      - MONGODB_URI=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017/whatsapp_db?authSource=admin
       - VERIFY_TOKEN=${VERIFY_TOKEN}
       - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
       - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
       - FILE_SERVER_URL=http://host.docker.internal:4040  # File server HTTP
       - CORS_ORIGIN=*
       - LOG_LEVEL=info
-      # Agregar variables JWT
+      # Variables JWT
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
