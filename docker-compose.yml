@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  whatsapp-microservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: whatsapp-microservice
+    restart: unless-stopped
+    ports:
+      - "8443:3000"  # Puerto HTTPS alternativo para webhook
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongodb:27017/whatsapp_db
+      - VERIFY_TOKEN=${VERIFY_TOKEN}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+      - FILE_SERVER_URL=http://host.docker.internal:4040  # Acceso local al file server (HTTP)
+      - CORS_ORIGIN=*
+      - LOG_LEVEL=info
+    depends_on:
+      - mongodb
+    networks:
+      - whatsapp-network
+    volumes:
+      - ./logs:/app/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Para acceder al file server del host
+
+  mongodb:
+    image: mongo:7.0
+    container_name: whatsapp-mongodb
+    restart: unless-stopped
+    ports:
+      - "27019:27017"  # Puerto MongoDB disponible
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_INITDB_DATABASE=whatsapp_db
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+      - ./backups:/backups  # Para backups manuales
+    networks:
+      - whatsapp-network
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  whatsapp-network:
+    driver: bridge
