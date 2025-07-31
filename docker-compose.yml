@@ -19,6 +19,11 @@ services:
       - FILE_SERVER_URL=http://host.docker.internal:4040  # File server HTTP
       - CORS_ORIGIN=*
       - LOG_LEVEL=info
+      # Agregar variables JWT
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
     depends_on:
       - mongodb
     networks:
