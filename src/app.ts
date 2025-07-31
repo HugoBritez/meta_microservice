@@ -1,7 +1,9 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { createServer } from 'http';
+import { createServer } from 'https'; // Cambiar a https
+import fs from 'fs';
+import path from 'path';
 import { config } from './config/config';
 import { database } from './config/database';
 import { WebSocketService } from './services/websocket.service';
@@ -21,7 +23,14 @@ class App {
 
   constructor() {
     this.app = express();
-    this.httpServer = createServer(this.app);
+    
+    // Configurar HTTPS con tus certificados
+    const sslOptions = {
+      key: fs.readFileSync(path.join(__dirname, '../ssl/server.key')),
+      cert: fs.readFileSync(path.join(__dirname, '../ssl/server.cer'))
+    };
+    
+    this.httpServer = createServer(sslOptions, this.app);
     this.wsService = WebSocketService.getInstance();
     
     this.initializeDatabase();
@@ -113,9 +122,9 @@ class App {
   public listen(): void {
     const port = config.port;
     this.httpServer.listen(port, () => {
-      console.log(`🚀 Servidor HTTP corriendo en puerto ${port}`);
-      console.log(`🔌 WebSocket Server disponible en ws://localhost:${port}`);
-      console.log(`📱 WhatsApp Microservice iniciado`);
+      console.log(`🚀 Servidor HTTPS ejecutándose en puerto ${port}`);
+      console.log(`🔒 HTTPS habilitado con certificados SSL`);
+      console.log(`📡 WebSocket disponible en wss://localhost:${port}`);
     });
   }
 }

@@ -8,7 +8,7 @@ services:
     container_name: whatsapp-microservice
     restart: unless-stopped
     ports:
-      - "8443:3000"  # Puerto HTTPS alternativo para webhook
+      - "8443:3000"  # Puerto HTTPS del microservicio
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -16,7 +16,7 @@ services:
       - VERIFY_TOKEN=${VERIFY_TOKEN}
       - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
       - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
-      - FILE_SERVER_URL=http://host.docker.internal:4040  # Acceso local al file server (HTTP)
+      - FILE_SERVER_URL=http://host.docker.internal:4040  # File server HTTP
       - CORS_ORIGIN=*
       - LOG_LEVEL=info
     depends_on:
@@ -25,8 +25,9 @@ services:
       - whatsapp-network
     volumes:
       - ./logs:/app/logs
+      - ./ssl:/app/ssl:ro  # Certificados SSL para el microservicio
     extra_hosts:
-      - "host.docker.internal:host-gateway"  # Para acceder al file server del host
+      - "host.docker.internal:host-gateway"
 
   mongodb:
     image: mongo:4.4

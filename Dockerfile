@@ -26,6 +26,9 @@ RUN chown -R nodejs:nodejs /app
 # Limpiar devDependencies después del build
 RUN npm prune --production
 
+# Copiar certificados SSL
+COPY ssl/ ./ssl/
+
 USER nodejs
 
 # Exponer puerto
