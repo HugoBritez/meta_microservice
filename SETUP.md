@@ -14,6 +14,11 @@ MONGODB_URI=mongodb://admin:tu_password@localhost:27017/whatsapp_db?authSource=a
 
 # WhatsApp API
 VERIFY_TOKEN=tu_verify_token_secreto
+WHATSAPP_ACCESS_TOKEN=tu_access_token_de_whatsapp
+WHATSAPP_PHONE_NUMBER_ID=tu_phone_number_id
+
+# Servidor de Archivos
+FILE_SERVER_URL=http://localhost:4040
 
 # CORS (opcional)
 CORS_ORIGIN=*
@@ -157,3 +162,19 @@ docker-compose restart mongodb
 1. Verificar puerto 3000 disponible
 2. Comprobar CORS si es cross-origin
 3. Revisar autenticación 
+
+
+
+### Acerca del flujo de los mensajes con documentos en Whatsapp
+
+📱 Cliente envía foto → WhatsApp API → Tu Webhook 
+                                        ↓
+💾 Mensaje guardado en BD (metadata inicial)
+                                        ↓
+🔄 Procesamiento asíncrono en background:
+   📥 Descarga desde WhatsApp
+   📤 Sube al servidor de archivos 
+   🔗 Genera URL local
+   💾 Actualiza BD con URL final
+                                        ↓
+🌐 CRM recibe URL lista para mostrar

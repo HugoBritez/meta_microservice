@@ -127,7 +127,7 @@ export class WhatsAppSendService {
           chatId: finalChatId, // <- usar finalChatId
           to,
           content: { 
-            media: { 
+            media: {
               type: mediaType, 
               id: mediaId, 
               url: mediaUrl, 
@@ -136,7 +136,6 @@ export class WhatsAppSendService {
           },
           type: mediaType
         });
-        
         await this.updateChat(finalChatId, { to, text: caption || '', chatId: finalChatId }, { type: mediaType, media: mediaPayload })
       }
 
