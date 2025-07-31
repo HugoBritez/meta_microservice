@@ -5,6 +5,16 @@ import { WebSocketService } from './websocket.service';
 import { mediaService } from './media.service';
 import { config } from '../config/config';
 
+// ⭐ NUEVA FUNCIÓN: Obtener tenant por phone_number_id
+function getTenantByPhoneNumberId(phoneNumberId: string): string | null {
+  for (const [tenantId, tenantConfig] of Object.entries(config.tenants)) {
+    if (tenantConfig.phoneNumberId === phoneNumberId) {
+      return tenantId;
+    }
+  }
+  return null;
+}
+
 export class WhatsAppWebhookService {
   private wsService: WebSocketService;
 
@@ -351,8 +361,41 @@ export class WhatsAppWebhookService {
    */
   private async notifyMediaProcessed(messageId: string, processedFile: any): Promise<void> {
     try {
-      console.log(`📊 Media procesado para mensaje ${messageId}: ${processedFile.publicUrl}`);
-      // TODO: Implementar notificación WebSocket específica para media procesado
+      // Obtener el mensaje para obtener el chatId y tenant
+      const message = await Message.findById(messageId);
+      if (!message) {
+        console.error(`Mensaje no encontrado para notificación: ${messageId}`);
+        return;
+      }
+
+      // Obtener el tenant basado en el phone_number_id del mensaje
+      const tenantId = getTenantByPhoneNumberId(message.to || '');
+      if (!tenantId) {
+        console.error(`Tenant no encontrado para phone_number_id: ${message.to}`);
+        return;
+      }
+
+      // Preparar datos del media procesado
+      const mediaData = {
+        messageId,
+        chatId: message.chatId,
+        media: {
+          status: 'processed',
+          downloadUrl: processedFile.publicUrl,
+          localUrls: {
+            original: processedFile.publicUrl,
+            fileServerId: processedFile.fileServerId
+          },
+          processedAt: new Date(),
+          fileSize: processedFile.size,
+          mimeType: processedFile.mimeType
+        }
+      };
+
+      // Notificar a todos los clientes del tenant que el media está listo
+      this.wsService.emitToTenant(tenantId, 'media-processed', mediaData);
+      
+      console.log(`📊 Media procesado notificado para mensaje ${messageId} en tenant ${tenantId}: ${processedFile.publicUrl}`);
     } catch (error) {
       console.error(`Error notificando procesamiento de media:`, error);
     }
