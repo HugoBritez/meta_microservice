@@ -336,32 +336,29 @@ export class WhatsAppWebhookService {
         size: processedFile.size
       });
 
-      const message = await Message.findById(messageId);
-      if (!message) {
+      // ✅ MEJORADO: Usar findByIdAndUpdate para evitar problemas de persistencia
+      const updatedMessage = await Message.findByIdAndUpdate(
+        messageId,
+        {
+          $set: {
+            'content.media.status': 'processed',
+            'content.media.downloadUrl': processedFile.publicUrl,
+            'content.media.localUrls': {
+              original: processedFile.publicUrl,
+              fileServerId: processedFile.fileServerId
+            },
+            'content.media.processedAt': new Date(),
+            'content.media.fileSize': processedFile.size
+          }
+        },
+        { new: true } // Retornar el documento actualizado
+      );
+
+      if (!updatedMessage) {
         console.error(`❌ [UPDATE_MEDIA] Mensaje no encontrado: ${messageId}`);
         return;
       }
 
-      console.log(`📝 [UPDATE_MEDIA] Mensaje encontrado. Media actual:`, {
-        status: message.content?.media?.status,
-        downloadUrl: message.content?.media?.downloadUrl,
-        hasMedia: !!message.content?.media
-      });
-
-      // Actualizar content con información del archivo procesado
-      message.content.media = {
-        ...message.content.media,
-        status: 'processed',
-        downloadUrl: processedFile.publicUrl, // ✅ ESTA ES LA URL QUE DEBERÍA GUARDARSE
-        localUrls: {
-          original: processedFile.publicUrl,
-          fileServerId: processedFile.fileServerId
-        },
-        processedAt: new Date(),
-        fileSize: processedFile.size
-      };
-
-      await message.save();
       console.log(`✅ [UPDATE_MEDIA] Metadatos de media actualizados para mensaje: ${messageId}`);
       console.log(` [UPDATE_MEDIA] URL guardada: ${processedFile.publicUrl}`);
 
@@ -386,20 +383,20 @@ export class WhatsAppWebhookService {
       // Obtener el mensaje para obtener el chatId y tenant
       const message = await Message.findById(messageId);
       if (!message) {
-        console.error(`Mensaje no encontrado para notificación: ${messageId}`);
+        console.error(`❌ [NOTIFY_MEDIA] Mensaje no encontrado para notificación: ${messageId}`);
         return;
       }
 
       // Obtener el tenant basado en el phone_number_id del mensaje
       const tenantId = getTenantByPhoneNumberId(message.to || '');
       if (!tenantId) {
-        console.error(`Tenant no encontrado para phone_number_id: ${message.to}`);
+        console.error(`❌ [NOTIFY_MEDIA] Tenant no encontrado para phone_number_id: ${message.to}`);
         return;
       }
 
-      // Preparar datos del media procesado
+      // ✅ MEJORADO: Preparar datos del media procesado con estructura correcta
       const mediaData = {
-        messageId,
+        messageId: messageId, // Usar el _id del mensaje
         chatId: message.chatId,
         media: {
           status: 'processed',
@@ -410,16 +407,27 @@ export class WhatsAppWebhookService {
           },
           processedAt: new Date(),
           fileSize: processedFile.size,
-          mimeType: processedFile.mimeType
+          mimeType: processedFile.mimeType,
+          // Mantener campos originales del media
+          id: message.content?.media?.id,
+          mime_type: message.content?.media?.mime_type,
+          sha256: message.content?.media?.sha256,
+          type: message.content?.media?.type,
+          caption: message.content?.media?.caption
         }
       };
+
+      console.log(`📡 [NOTIFY_MEDIA] Enviando evento media-processed:`, {
+        messageId: mediaData.messageId,
+        downloadUrl: mediaData.media.downloadUrl
+      });
 
       // Notificar a todos los clientes del tenant que el media está listo
       this.wsService.broadcastToChat(message.chatId, 'media-processed', mediaData);
       
       console.log(`📊 Media procesado notificado para mensaje ${messageId} en tenant ${tenantId}: ${processedFile.publicUrl}`);
     } catch (error) {
-      console.error(`Error notificando procesamiento de media:`, error);
+      console.error(`❌ [NOTIFY_MEDIA] Error notificando procesamiento de media:`, error);
     }
   }
 
