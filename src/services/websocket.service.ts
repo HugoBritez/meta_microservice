@@ -323,9 +323,39 @@ export class WebSocketService {
         .limit(data.limit || 50)
         .skip(data.offset || 0);
 
+      // ✅ MEJORADO: Procesar mensajes para verificar estado del media
+      const processedMessages = messages.map(message => {
+        const messageObj = message.toObject();
+        
+        // Si el mensaje tiene media, verificar si ya fue procesado
+        if (messageObj.content?.media) {
+          console.log(`🔍 [GET_MESSAGES] Mensaje con media:`, {
+            messageId: messageObj.messageId,
+            mediaStatus: messageObj.content.media.status,
+            downloadUrl: messageObj.content.media.downloadUrl,
+            hasLocalUrls: !!messageObj.content.media.localUrls
+          });
+
+          // Si el media ya tiene downloadUrl, está procesado
+          if (messageObj.content.media.downloadUrl) {
+            messageObj.content.media.status = 'processed';
+            console.log(`✅ [GET_MESSAGES] Media procesado: ${messageObj.content.media.downloadUrl}`);
+          } else if (messageObj.content.media.status === 'pending') {
+            // Mantener como pending si no tiene downloadUrl
+            console.log(`⏳ [GET_MESSAGES] Media pendiente: ${messageObj.messageId}`);
+          } else {
+            // Si no tiene status, marcarlo como pending
+            messageObj.content.media.status = 'pending';
+            console.log(`🔄 [GET_MESSAGES] Media sin status, marcado como pending: ${messageObj.messageId}`);
+          }
+        }
+        
+        return messageObj;
+      });
+
       socket.emit('chat_messages', {
         chatId: data.chatId,
-        messages: messages.reverse(), // Orden cronológico
+        messages: processedMessages.reverse(), // Orden cronológico
         hasMore: messages.length === (data.limit || 50)
       });
     } catch (error) {

@@ -329,17 +329,30 @@ export class WhatsAppWebhookService {
    */
   private async updateMessageWithMediaInfo(messageId: string, processedFile: any): Promise<void> {
     try {
+      console.log(` [UPDATE_MEDIA] Buscando mensaje: ${messageId}`);
+      console.log(` [UPDATE_MEDIA] Datos del archivo procesado:`, {
+        publicUrl: processedFile.publicUrl,
+        fileServerId: processedFile.fileServerId,
+        size: processedFile.size
+      });
+
       const message = await Message.findById(messageId);
       if (!message) {
-        console.error(`Mensaje no encontrado: ${messageId}`);
+        console.error(`❌ [UPDATE_MEDIA] Mensaje no encontrado: ${messageId}`);
         return;
       }
+
+      console.log(`📝 [UPDATE_MEDIA] Mensaje encontrado. Media actual:`, {
+        status: message.content?.media?.status,
+        downloadUrl: message.content?.media?.downloadUrl,
+        hasMedia: !!message.content?.media
+      });
 
       // Actualizar content con información del archivo procesado
       message.content.media = {
         ...message.content.media,
         status: 'processed',
-        downloadUrl: processedFile.publicUrl,
+        downloadUrl: processedFile.publicUrl, // ✅ ESTA ES LA URL QUE DEBERÍA GUARDARSE
         localUrls: {
           original: processedFile.publicUrl,
           fileServerId: processedFile.fileServerId
@@ -349,10 +362,19 @@ export class WhatsAppWebhookService {
       };
 
       await message.save();
-      console.log(`📊 Metadatos de media actualizados para mensaje: ${messageId}`);
+      console.log(`✅ [UPDATE_MEDIA] Metadatos de media actualizados para mensaje: ${messageId}`);
+      console.log(` [UPDATE_MEDIA] URL guardada: ${processedFile.publicUrl}`);
+
+      // ✅ VERIFICACIÓN: Leer el mensaje de nuevo para confirmar que se guardó
+      const savedMessage = await Message.findById(messageId);
+      console.log(` [UPDATE_MEDIA] Verificación post-guardado:`, {
+        status: savedMessage?.content?.media?.status,
+        downloadUrl: savedMessage?.content?.media?.downloadUrl,
+        hasLocalUrls: !!savedMessage?.content?.media?.localUrls
+      });
 
     } catch (error) {
-      console.error(`Error actualizando metadatos de media:`, error);
+      console.error(`❌ [UPDATE_MEDIA] Error actualizando metadatos de media:`, error);
     }
   }
 
