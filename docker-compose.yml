@@ -16,7 +16,7 @@ services:
       - VERIFY_TOKEN=${VERIFY_TOKEN}
       - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
       - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
-      - FILE_SERVER_URL=http://host.docker.internal:4040  # File server HTTP
+      - FILE_SERVER_URL=https://host.docker.internal:4040  # File server HTTP
       - CORS_ORIGIN=*
       - LOG_LEVEL=info
       # Variables JWT

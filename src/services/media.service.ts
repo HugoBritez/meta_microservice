@@ -38,7 +38,7 @@ interface ProcessedMediaFile {
 }
 
 export class MediaService {
-  private readonly FILE_SERVER_URL = process.env.FILE_SERVER_URL || 'http://localhost:4040';
+  private readonly FILE_SERVER_URL = process.env.FILE_SERVER_URL || 'https://node.sofmar.com.py:4040';
   private readonly FILE_SERVER_CLIENT = 'shared'; // Cliente para archivos de WhatsApp
   private readonly WHATSAPP_FOLDER = 'whatsapp'; // Subcarpeta para archivos de WhatsApp
 
@@ -165,7 +165,7 @@ export class MediaService {
     try {
       // Crear FormData para el upload
       const formData = new FormData();
-      
+
       // Crear blob del archivo
       const blob = new Blob([fileBuffer], { type: metadata.mimeType });
       const filename = `${metadata.id}.${this.getFileExtension(metadata.mimeType)}`;

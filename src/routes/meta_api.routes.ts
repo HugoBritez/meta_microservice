@@ -9,11 +9,14 @@ const webhookService = new WhatsAppWebhookService();
 router.get('/', (req: Request, res: Response) => {
   const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': token } = req.query;
 
-  if (mode === 'subscribe' && token === config.verifyToken) {
-    console.log("✅ WEBHOOK VERIFICADO");
+  // ⭐ NUEVO: Usar verify token del tenant
+  const verifyToken = req.tenant?.verifyToken || config.verifyToken;
+
+  if (mode === 'subscribe' && token === verifyToken) {
+    console.log(`✅ WEBHOOK VERIFICADO para tenant: ${req.tenant?.id || 'unknown'}`);
     res.status(200).send(challenge);
   } else {
-    console.log("❌ WEBHOOK RECHAZADO - Token inválido");
+    console.log(`❌ WEBHOOK RECHAZADO - Token inválido para tenant: ${req.tenant?.id || 'unknown'}`);
     res.status(403).end();
   }
 });
@@ -22,9 +25,9 @@ router.get('/', (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-    console.log(`\n📥 Webhook received ${timestamp}\n`);
+    console.log(`\n📥 Webhook received ${timestamp} para tenant: ${req.tenant?.id || 'unknown'}\n`);
 
-    // Procesar el webhook con el servicio
+    // ⭐ NUEVO: Pasar información del tenant al servicio
     await webhookService.processWebhook(req.body);
     
     // Siempre responder 200 para confirmar recepción

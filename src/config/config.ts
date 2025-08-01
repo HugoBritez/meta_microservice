@@ -25,6 +25,8 @@ interface Config {
       subdomain?: string;
       isActive: boolean;
       phoneNumberId?: string; // ⭐ NUEVO: Mapeo con WhatsApp
+      // ⭐ NUEVO: Mapeo personalizado de base de datos
+      databaseName?: string;
     }
   }
 }
@@ -50,19 +52,14 @@ export const config: Config = {
       host: "localhost",
       isActive: true,
       phoneNumberId: process.env['WHATSAPP_PHONE_NUMBER_ID'] || '',
+      databaseName: "gaesademo", 
     },
     sofmar: {
       name: "Sofmar Principal",
       host: "sofmar.com.py",
       isActive: true,
-      phoneNumberId: "769414586246354", // ⭐ WhatsApp Phone Number ID de Sofmar
-    },
-    lobeck: {
-      name: "Lobeck",
-      host: "lobeck.sofmar.com.py",
-      subdomain: "lobeck",
-      isActive: true,
-      phoneNumberId: "", // ⭐ Configurar cuando se tenga
+      phoneNumberId: "769414586246354",
+      databaseName: "sofmar", 
     }
   }
 };

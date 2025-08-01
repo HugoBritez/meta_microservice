@@ -388,7 +388,6 @@ export class WebSocketService {
   }
 
 
-
   private cleanupInactiveClients(): void {
     const now = new Date();
     const timeout = 30 * 60 * 1000; // 30 minutos

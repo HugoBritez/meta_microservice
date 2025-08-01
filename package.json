@@ -27,6 +27,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.0",
     "morgan": "^1.10.0",
+    "mysql2": "^3.14.3",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
@@ -35,6 +36,7 @@
     "@types/jest": "^29.5.8",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.9",
+    "@types/mysql": "^2.15.27",
     "@types/node": "^20.10.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",

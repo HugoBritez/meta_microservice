@@ -19,17 +19,19 @@ export class WhatsAppWebhookService {
   private wsService: WebSocketService;
 
   constructor() {
+    // ⭐ CORREGIDO: Usar getInstance() en lugar de new
     this.wsService = WebSocketService.getInstance();
   }
 
-  async processWebhook(webhookData: WhatsAppWebhook): Promise<void> {
+  // ⭐ NUEVO: Agregar parámetro tenant
+  async processWebhook(webhookData: WhatsAppWebhook, tenant?: any): Promise<void> {
     try {
 
       for (const entry of webhookData.entry) {
         for (const change of entry.changes) {
           switch (change.field) {
             case 'messages':
-              await this.processMessages(change.value, webhookData);
+              await this.processMessages(change.value, webhookData, tenant);
               break;
             case 'message_template_status_update':
               break;
@@ -46,11 +48,11 @@ export class WhatsAppWebhookService {
     }
   }
 
-  private async processMessages(changeValue: any, originalWebhook: WhatsAppWebhook): Promise<void> {
+  private async processMessages(changeValue: any, originalWebhook: WhatsAppWebhook, tenant?: any): Promise<void> {
     // Procesar mensajes recibidos
     if (changeValue.messages) {
       for (const message of changeValue.messages) {
-        await this.saveMessage(message, changeValue, originalWebhook);
+        await this.saveMessage(message, changeValue, originalWebhook, tenant);
       }
     }
 
@@ -65,7 +67,8 @@ export class WhatsAppWebhookService {
   private async saveMessage(
     message: WhatsAppMessage, 
     changeValue: any, 
-    originalWebhook: WhatsAppWebhook
+    originalWebhook: WhatsAppWebhook,
+    tenant?: any
   ): Promise<void> {
     try {
       console.log(`💬 Procesando mensaje ${message.type} de ${message.from}`);
@@ -102,7 +105,7 @@ export class WhatsAppWebhookService {
 
       // Procesar archivos multimedia de forma asíncrona (sin bloquear)
       if (this.isMediaMessage(message.type)) {
-        this.processMediaAsync(message, (messageDoc as any)._id.toString()).catch(error => {
+        this.processMediaAsync(message, (messageDoc as any)._id.toString(), tenant).catch(error => {
           console.error(`Error procesando media ${message.id}:`, error);
         });
       }
@@ -280,12 +283,15 @@ export class WhatsAppWebhookService {
   /**
    * 📥 Procesa archivos multimedia de forma asíncrona
    */
-  private async processMediaAsync(message: WhatsAppMessage, messageId: string): Promise<void> {
+  private async processMediaAsync(message: WhatsAppMessage, messageId: string, tenant?: any): Promise<void> {
     try {
       console.log(`🔄 Iniciando procesamiento asíncrono de media: ${message.id}`);
 
-      if (!config.whatsappAccessToken) {
-        console.error('❌ WHATSAPP_ACCESS_TOKEN no configurado');
+      // ⭐ NUEVO: Usar access token del tenant
+      const accessToken = tenant?.accessToken || config.whatsappAccessToken;
+      
+      if (!accessToken) {
+        console.error('❌ ACCESS_TOKEN no configurado para tenant:', tenant?.id);
         return;
       }
 
@@ -296,10 +302,10 @@ export class WhatsAppWebhookService {
         return;
       }
 
-      // Procesar archivo con Media Service
+      // Procesar archivo con Media Service usando token del tenant
       const processedFile = await mediaService.processWhatsAppMedia(
         mediaContent.id,
-        config.whatsappAccessToken,
+        accessToken, // ⭐ Usar token del tenant
         {
           id: mediaContent.id,
           mimeType: mediaContent.mime_type,
