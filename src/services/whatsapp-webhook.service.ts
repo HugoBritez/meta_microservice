@@ -393,7 +393,7 @@ export class WhatsAppWebhookService {
       };
 
       // Notificar a todos los clientes del tenant que el media está listo
-      this.wsService.emitToTenant(tenantId, 'media-processed', mediaData);
+      this.wsService.broadcastToChat(message.chatId, 'media-processed', mediaData);
       
       console.log(`📊 Media procesado notificado para mensaje ${messageId} en tenant ${tenantId}: ${processedFile.publicUrl}`);
     } catch (error) {

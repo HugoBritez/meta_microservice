@@ -163,18 +163,16 @@ docker-compose restart mongodb
 2. Comprobar CORS si es cross-origin
 3. Revisar autenticación 
 
-
-
 ### Acerca del flujo de los mensajes con documentos en Whatsapp
 
-📱 Cliente envía foto → WhatsApp API → Tu Webhook 
+ Cliente envía foto → WhatsApp API → Tu Webhook 
                                         ↓
-💾 Mensaje guardado en BD (metadata inicial)
+ Mensaje guardado en BD (metadata inicial)
                                         ↓
-🔄 Procesamiento asíncrono en background:
-   📥 Descarga desde WhatsApp
-   📤 Sube al servidor de archivos 
-   🔗 Genera URL local
-   💾 Actualiza BD con URL final
+                      Procesamiento asíncrono en background:
+                         Descarga desde WhatsApp
+                         Sube al servidor de archivos 
+                         Genera URL local
+                         Actualiza BD con URL final
                                         ↓
-🌐 CRM recibe URL lista para mostrar
+                       CRM recibe URL lista para mostrar
